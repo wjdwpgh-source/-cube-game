@@ -1,0 +1,1438 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>큐브 놀이</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E4EEFC; --ink:#1D2747; --soft:#5A6788; --surface:#FFFFFF; --line:#C6D3EC;
+  --blue:#2D63F0; --blue-ink:#FFFFFF; --sun:#FFC63A; --sun-ink:#3A2A00; --shade:rgba(29,39,71,.45);
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#121A2E; --ink:#E9EFFF; --soft:#9AA8CC; --surface:#1F2944; --line:#34415F;
+    --blue:#6A93FF; --blue-ink:#0C1430; --sun:#FFD25E; --sun-ink:#2E2100; --shade:rgba(5,8,18,.6);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121A2E; --ink:#E9EFFF; --soft:#9AA8CC; --surface:#1F2944; --line:#34415F;
+  --blue:#6A93FF; --blue-ink:#0C1430; --sun:#FFD25E; --sun-ink:#2E2100; --shade:rgba(5,8,18,.6);
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html,body{height:100%;margin:0}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:"Jua","Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,sans-serif;
+  display:flex; flex-direction:column; overflow:hidden;
+  -webkit-tap-highlight-color:transparent; user-select:none;
+}
+.top{display:flex;align-items:center;justify-content:space-between;padding:14px 20px 0;gap:12px}
+h1{margin:0;font-size:1.6rem;font-weight:400;letter-spacing:-.01em}
+.stats{display:flex;gap:18px}
+.stat{display:flex;flex-direction:column;align-items:flex-end;line-height:1.1}
+.stat span{font-size:.85rem;color:var(--soft)}
+.stat b{font-weight:400;font-size:1.6rem;font-variant-numeric:tabular-nums;min-width:3ch;text-align:right}
+
+#stage{position:relative;flex:1;min-height:0}
+#c{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+#c.grabbing{cursor:grabbing}
+#hint{
+  position:absolute;left:50%;bottom:10px;transform:translateX(-50%);
+  margin:0;padding:8px 16px;border-radius:999px;background:var(--surface);color:var(--ink);
+  font-size:1rem;text-align:center;max-width:calc(100% - 32px);box-shadow:0 2px 0 var(--line);
+  pointer-events:none;
+}
+
+.dock{display:flex;flex-wrap:wrap;justify-content:center;align-items:flex-end;gap:12px 20px;padding:10px 16px 16px}
+.group{display:flex;flex-direction:column;gap:4px}
+.glabel{font-size:.85rem;color:var(--soft);padding-left:6px}
+.seg{display:flex;background:var(--surface);border:2px solid var(--line);border-radius:16px;padding:3px}
+.seg button{
+  font:inherit;font-size:1.05rem;color:var(--ink);background:transparent;border:0;
+  padding:8px 14px;border-radius:12px;cursor:pointer;min-width:52px;
+}
+.seg button[aria-pressed="true"]{background:var(--blue);color:var(--blue-ink)}
+.actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.btn{
+  font:inherit;font-size:1.15rem;border:0;border-radius:18px;padding:12px 20px;cursor:pointer;
+  background:var(--surface);color:var(--ink);box-shadow:0 4px 0 var(--line);
+  transition:transform .08s, box-shadow .08s;
+}
+.btn:active:not(:disabled){transform:translateY(3px);box-shadow:0 1px 0 var(--line)}
+.btn.primary{background:var(--sun);color:var(--sun-ink);box-shadow:0 4px 0 #D99A0B}
+.btn.primary:active:not(:disabled){box-shadow:0 1px 0 #D99A0B}
+.btn:disabled,.seg button:disabled{opacity:.4;cursor:default}
+#steps{position:absolute;top:10px;right:10px;width:min(350px,calc(100% - 20px));max-height:calc(100% - 70px);display:flex;flex-direction:column;background:var(--surface);border-radius:20px;box-shadow:0 4px 0 var(--line);z-index:3;overflow:hidden}
+#steps[hidden]{display:none}
+#playDock[hidden],#editDock[hidden]{display:none}
+#editDock .group{align-items:center}
+.palette{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;padding-top:8px}
+.sw{width:50px;height:50px;border-radius:14px;border:3px solid var(--line);cursor:pointer;position:relative;font:inherit;font-size:1.4rem;padding:0;transition:transform .1s}
+.sw[aria-pressed="true"]{border-color:var(--ink);transform:translateY(-4px)}
+.sw span{position:absolute;right:-7px;top:-9px;background:var(--surface);color:var(--ink);border-radius:999px;font-size:.8rem;min-width:22px;padding:1px 6px;box-shadow:0 1px 0 var(--line)}
+.sw span.over{background:#E5484D;color:#fff}
+.sw span.ok{background:#22A447;color:#fff}
+@media (max-width:520px){ .sw{width:42px;height:42px} .palette{gap:8px} }
+.steps-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px 8px;gap:8px}
+.steps-head b{font-weight:400;font-size:1.1rem}
+.steps-head small{display:block;color:var(--soft);font-size:.8rem}
+#stepsClose{font:inherit;border:0;background:var(--bg);color:var(--ink);border-radius:12px;padding:6px 12px;cursor:pointer}
+@media (max-width:520px){ #steps{top:auto;bottom:56px;left:10px;right:10px;width:auto;max-height:50%} }
+.tabs{display:flex;background:var(--bg);border-radius:12px;padding:3px}
+.tabs button{font:inherit;font-size:.95rem;border:0;background:transparent;color:var(--ink);padding:6px 10px;border-radius:9px;cursor:pointer}
+.tabs button[aria-pressed="true"]{background:var(--blue);color:var(--blue-ink)}
+.tabs button:disabled{opacity:.55;cursor:default}
+.steps-note{margin:0 14px 8px;font-size:.82rem;color:var(--soft);line-height:1.5}
+.steps-scroll{overflow-y:auto;min-height:0;flex:1}
+#stageList{padding:0 10px 12px;display:flex;flex-direction:column;gap:8px}
+.legend{margin:0 10px 10px;background:var(--bg);border-radius:16px;padding:6px 12px 8px}
+.legend summary{cursor:pointer;font-size:1.02rem;padding:4px 0}
+.legend p{margin:6px 0;font-size:.86rem;line-height:1.55}
+.legend p b{font-weight:400;color:var(--blue)}
+.lg-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0}
+.lg{display:flex;gap:8px;align-items:center;background:var(--surface);border-radius:12px;padding:6px}
+.lg svg{width:42px;height:42px;flex:none}
+.lg b{font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:700;font-size:1.25rem;display:block;line-height:1.1;color:var(--ink)}
+.lg small{display:block;font-size:.76rem;line-height:1.4}
+.lg small i{font-style:normal;color:var(--soft)}
+.alg-row{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.tok{display:flex;flex-direction:column;align-items:center;background:var(--surface);border-radius:8px;padding:3px 7px;min-width:46px}
+.tok b{font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:700;font-size:1.02rem;line-height:1.25;color:var(--ink)}
+.tok small{font-size:.68rem;color:var(--soft);white-space:nowrap}
+.sym{font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:700;background:var(--surface);color:var(--ink);border-radius:6px;padding:0 6px;min-width:2.3em;text-align:center;flex:none}
+.moves li.now .sym{background:rgba(255,255,255,.7);color:#1D2747}
+.stage{border-radius:16px;padding:10px;background:var(--bg)}
+.stage.now{box-shadow:inset 0 0 0 3px var(--sun)}
+.stage.done{opacity:.6}
+.stage-top{display:flex;gap:10px;align-items:flex-start}
+.stage-top svg{flex:none;width:66px;height:66px}
+.stage h3{margin:0 0 4px;font-weight:400;font-size:1.05rem;display:flex;align-items:center;gap:6px}
+.stage h3 .num{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:999px;background:var(--blue);color:var(--blue-ink);font-size:.8rem;flex:none}
+.stage.done h3 .num{background:#22A447;color:#fff}
+.stage p{margin:0;font-size:.88rem;line-height:1.5}
+.stage .meta{margin-top:6px;color:var(--soft);font-size:.82rem}
+.alg{font-family:ui-monospace,Menlo,Consolas,monospace;background:var(--surface);color:var(--ink);border-radius:6px;padding:1px 6px;font-size:.8rem;white-space:nowrap}
+.moves{list-style:none;margin:8px 0 0;padding:0;counter-reset:s}
+.moves li{counter-increment:s;display:flex;gap:8px;align-items:baseline;padding:5px 6px;border-radius:10px;font-size:.92rem}
+.moves li::before{content:counter(s);min-width:1.6em;text-align:right;color:var(--soft);font-variant-numeric:tabular-nums}
+.moves li.now{background:var(--sun);color:var(--sun-ink)}
+.moves li.now::before{color:var(--sun-ink)}
+.moves li.done{opacity:.4}
+button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+
+#win{position:absolute;inset:0;display:grid;place-items:center;background:var(--shade);z-index:5;padding:16px}
+#win[hidden]{display:none}
+.card{
+  background:var(--surface);border-radius:28px;padding:28px 28px 24px;text-align:center;
+  max-width:340px;width:100%;box-shadow:0 8px 0 var(--line);
+}
+.card .big{font-size:2.4rem;margin:0 0 6px}
+.card p{margin:4px 0;font-size:1.15rem}
+.card .best{color:var(--soft);font-size:1rem;margin-top:10px}
+.card .btn{margin-top:18px}
+
+.confetti{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:4}
+.confetti i{position:absolute;top:-20px;width:12px;height:12px;border-radius:3px;animation:fall linear forwards}
+@keyframes fall{to{transform:translateY(110vh) rotate(720deg)}}
+
+@media (max-width:520px){
+  .top{padding:10px 14px 0}
+  h1{font-size:1.35rem}
+  .stat b{font-size:1.35rem}
+  .dock{gap:10px 12px;padding:8px 10px 12px}
+  .seg button{padding:7px 10px;min-width:44px;font-size:1rem}
+  .btn{font-size:1.05rem;padding:11px 16px}
+  #hint{font-size:.92rem}
+}
+@media (prefers-reduced-motion: reduce){
+  .confetti{display:none}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>큐브 놀이</h1>
+  <div class="stats">
+    <div class="stat"><span>움직임</span><b id="moves">0</b></div>
+    <div class="stat"><span>시간</span><b id="time">0:00</b></div>
+  </div>
+</header>
+
+<main id="stage">
+  <canvas id="c" aria-label="돌릴 수 있는 큐브"></canvas>
+  <p id="hint">섞기를 눌러 시작해요</p>
+  <div id="steps" hidden>
+    <div class="steps-head">
+      <div class="tabs">
+        <button id="tabStage" aria-pressed="true">단계별 풀이</button>
+        <button id="tabFast" aria-pressed="false">가장 빠른 풀이</button>
+      </div>
+      <button id="stepsClose">닫기</button>
+    </div>
+    <div class="steps-scroll">
+      <p class="steps-note" id="stepsNote"></p>
+      <details class="legend" open>
+        <summary>📖 기호 읽는 법 (R, U, R′…)</summary>
+        <div id="legendBody"></div>
+      </details>
+      <div id="stageList"></div>
+    </div>
+  </div>
+  <div id="win" hidden>
+    <div class="card" role="dialog" aria-labelledby="winTitle">
+      <p class="big" id="winTitle">다 맞췄어요! 🎉</p>
+      <p id="winStats"></p>
+      <p class="best" id="winBest"></p>
+      <button class="btn primary" id="again">한 번 더!</button>
+    </div>
+  </div>
+</main>
+
+<section class="dock" id="playDock">
+  <div class="group">
+    <span class="glabel">크기</span>
+    <div class="seg" id="sizeSeg">
+      <button data-size="2" aria-pressed="true">2×2</button>
+      <button data-size="3" aria-pressed="false">3×3</button>
+    </div>
+  </div>
+  <div class="group">
+    <span class="glabel">섞는 횟수</span>
+    <div class="seg" id="levelSeg">
+      <button data-level="3" aria-pressed="true">3번</button>
+      <button data-level="7" aria-pressed="false">7번</button>
+      <button data-level="20" aria-pressed="false">20번</button>
+    </div>
+  </div>
+  <div class="actions">
+    <button class="btn primary" id="scramble">섞기</button>
+    <button class="btn" id="undo">되돌리기</button>
+    <button class="btn" id="hintBtn">힌트 보기</button>
+    <button class="btn" id="solve">정답 보기</button>
+    <button class="btn" id="setupBtn">큐브 세팅</button>
+  </div>
+</section>
+
+<section class="dock" id="editDock" hidden>
+  <div class="group">
+    <span class="glabel">색을 고르고 큐브 칸을 톡 눌러요 (숫자는 남은 칸)</span>
+    <div class="palette" id="palette"></div>
+  </div>
+  <div class="actions">
+    <button class="btn" id="editClear">다 지우기</button>
+    <button class="btn" id="editReset">맞춰진 색으로</button>
+    <button class="btn" id="editCancel">취소</button>
+    <button class="btn primary" id="editDone">완성! 문제 만들기</button>
+  </div>
+</section>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+  const V3 = THREE.Vector3;
+  const $ = id => document.getElementById(id);
+  const stage = $('stage'), canvas = $('c'), hintEl = $('hint');
+
+  // ---------- Scene ----------
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
+  scene.add(camera);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.72));
+  const lamp = new THREE.DirectionalLight(0xffffff, 0.55);
+  lamp.position.set(2, 4, 3);
+  camera.add(lamp);
+
+  const cubeGroup = new THREE.Group();
+  scene.add(cubeGroup);
+
+  let theta = 0.65, phi = 0.5, N = 2;
+  function updateCamera() {
+    const w = stage.clientWidth || 1, h = stage.clientHeight || 1;
+    const aspect = w / h;
+    const dist = (N * 3.1 + 1.2) / Math.min(1, aspect * 1.05);
+    camera.position.set(
+      dist * Math.cos(phi) * Math.sin(theta),
+      dist * Math.sin(phi),
+      dist * Math.cos(phi) * Math.cos(theta)
+    );
+    camera.lookAt(0, 0, 0);
+  }
+  function resize() {
+    const w = stage.clientWidth, h = stage.clientHeight;
+    if (!w || !h) return;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    updateCamera();
+  }
+  new ResizeObserver(resize).observe(stage);
+
+  // ---------- 움직임을 말로 설명하기 (지금 보이는 방향 기준) ----------
+  function describe(m) {
+    camera.updateMatrixWorld();
+    const right = new V3().setFromMatrixColumn(camera.matrixWorld, 0);
+    const up = new V3().setFromMatrixColumn(camera.matrixWorld, 1);
+    const fwd = new V3().setFromMatrixColumn(camera.matrixWorld, 2);
+    const a = new V3(m.axis === 'x' ? 1 : 0, m.axis === 'y' ? 1 : 0, m.axis === 'z' ? 1 : 0);
+    const dots = [a.dot(right), a.dot(up), a.dot(fwd)];
+    let k = 0;
+    for (let i = 1; i < 3; i++) if (Math.abs(dots[i]) > Math.abs(dots[k])) k = i;
+    const s = Math.sign(dots[k]);
+    const pos = Math.sign(Math.round(m.layer * s * 2));
+    const spin = m.dir * s;
+    if (k === 1) {
+      const where = pos > 0 ? '맨 위 줄' : pos < 0 ? '맨 아래 줄' : '가운데 가로줄';
+      const sym = pos > 0 ? (spin > 0 ? "U'" : 'U') : pos < 0 ? (spin > 0 ? 'D' : "D'") : (spin > 0 ? 'E' : "E'");
+      return { sym, icon: spin > 0 ? '➡️' : '⬅️', text: where + '을 ' + (spin > 0 ? '오른쪽' : '왼쪽') + '으로' };
+    }
+    if (k === 0) {
+      const where = pos > 0 ? '오른쪽 세로줄' : pos < 0 ? '왼쪽 세로줄' : '가운데 세로줄';
+      const sym = pos > 0 ? (spin > 0 ? "R'" : 'R') : pos < 0 ? (spin > 0 ? 'L' : "L'") : (spin > 0 ? 'M' : "M'");
+      return { sym, icon: spin > 0 ? '⬇️' : '⬆️', text: where + '을 ' + (spin > 0 ? '아래로' : '위로') };
+    }
+    const where = pos > 0 ? '앞쪽 면' : pos < 0 ? '뒤쪽 면' : '가운데 판';
+    const sym = pos > 0 ? (spin > 0 ? "F'" : 'F') : pos < 0 ? (spin > 0 ? 'B' : "B'") : (spin > 0 ? "S'" : 'S');
+    return { sym, icon: spin > 0 ? '🔄' : '🔃', text: where + '을 ' + (spin > 0 ? '시계 반대 방향으로' : '시계 방향으로') };
+  }
+
+  // ---------- 힌트 표시 ----------
+  const hlMat = new THREE.MeshBasicMaterial({ color: 0xFFC63A, transparent: true, opacity: 0.35, depthWrite: false });
+  let hlMesh = null, hlMove = null, hintsUsed = 0;
+  function clearHighlight() {
+    if (hlMesh) { scene.remove(hlMesh); hlMesh.geometry.dispose(); hlMesh = null; }
+    hlMove = null;
+  }
+  function showHighlight(m) {
+    clearHighlight();
+    const sz = N + 0.14, th = 1.1;
+    const geo = new THREE.BoxGeometry(m.axis === 'x' ? th : sz, m.axis === 'y' ? th : sz, m.axis === 'z' ? th : sz);
+    hlMesh = new THREE.Mesh(geo, hlMat);
+    hlMesh.position[m.axis] = m.layer;
+    hlMesh.renderOrder = 2;
+    scene.add(hlMesh);
+    hlMove = m;
+  }
+  // ---------- 단계별 풀이 (층별 풀이법) ----------
+  function makeStageSolver(deps){
+    const { faceletList, permFor, fkey } = deps;
+    const neg = v => v.map(x => -x || 0);
+    const cross = (a, b) => [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]].map(x => x || 0);
+    const eq = (a, b) => a[0]===b[0] && a[1]===b[1] && a[2]===b[2];
+    return function solveStages(N, colors) {
+      const L = faceletList(N), off = (N - 1) / 2;
+      const idx = new Map(L.map((f, i) => [fkey(f.p, f.n), i]));
+      const faceDir = {};
+      if (N === 3) {
+        L.forEach((f, i) => { if (f.p.filter(v => v === 0).length === 2) faceDir[colors[i]] = f.n; });
+      } else {
+        // 2x2: 흰 꼭짓점 하나를 기준으로 (가능하면 흰색이 아래를 보는 것)
+        let wi = L.findIndex((f, i) => colors[i] === 2 && f.n[1] === -1);
+        if (wi < 0) wi = colors.indexOf(2);
+        const p = L[wi].p;
+        L.forEach((f, i) => { if (eq(f.p, p)) { faceDir[colors[i]] = f.n; faceDir[colors[i] ^ 1] = neg(f.n); } });
+      }
+      for (let c = 0; c < 6; c++) if (!faceDir[c]) return null;
+      const Ud = faceDir[3];
+      let Fd = null;
+      for (const c of [4, 0, 5, 1]) if (!eq(faceDir[c], Ud) && !eq(faceDir[c], neg(Ud)) && !eq(faceDir[c], faceDir[2])) { Fd = faceDir[c]; break; }
+      const Rd = cross(Ud, Fd);
+      const dirOf = { U: Ud, D: neg(Ud), F: Fd, B: neg(Fd), R: Rd, L: neg(Rd) };
+      function letterMove(ch) {
+        const n = dirOf[ch]; const k = n.findIndex(v => v !== 0); const s = n[k];
+        return { axis: 'xyz'[k], layer: s * off, dir: -s };
+      }
+      function alg(str) {
+        const out = [];
+        str.split(/\s+/).filter(Boolean).forEach(t => {
+          const m = letterMove(t[0]);
+          if (t[1] === "'") out.push({ axis: m.axis, layer: m.layer, dir: -m.dir });
+          else if (t[1] === '2') out.push(m, m);
+          else out.push(m);
+        });
+        return out;
+      }
+      const fwdCache = new Map();
+      function fwdOf(m) {
+        const k = m.axis + m.layer + ':' + m.dir;
+        if (!fwdCache.has(k)) { const P = permFor(L, m); const f = new Int16Array(L.length); P.forEach((src, dst) => { f[src] = dst; }); fwdCache.set(k, f); }
+        return fwdCache.get(k);
+      }
+      function mkMove(str, fam) {
+        const seq = alg(str);
+        let map = Int16Array.from(L.map((_, i) => i));
+        for (const m of seq) { const f = fwdOf(m); map = map.map(v => f[v]); }
+        return { str, seq, map, fam };
+      }
+      const relabel = s => s.replace(/[FRBL]/g, c => ({ F: 'R', R: 'B', B: 'L', L: 'F' })[c]);
+      const rot4 = s => [s, relabel(s), relabel(relabel(s)), relabel(relabel(relabel(s)))];
+      const Uturns = ['U', "U'", 'U2'].map(s => mkMove(s, 'U'));
+      const basic = [];
+      'UDFBRL'.split('').forEach(f => ['', "'", '2'].forEach(x => basic.push(mkMove(f + x, f))));
+
+      // pieces
+      const byPos = new Map();
+      L.forEach((f, i) => { const k = f.p.join(); if (!byPos.has(k)) byPos.set(k, []); byPos.get(k).push(i); });
+      const pieces = [];
+      for (const [k, list] of byPos) {
+        if (list.length < 2) continue;
+        const cols = list.map(i => colors[i]);
+        const key = cols.includes(2) ? 2 : cols.includes(3) ? 3 : Math.min(...cols);
+        const loc = list[cols.indexOf(key)];
+        const home = [0, 0, 0];
+        cols.forEach(c => { for (let a = 0; a < 3; a++) home[a] += faceDir[c][a] * off; });
+        const hi = idx.get(fkey(home.map(v => v || 0), faceDir[key]));
+        if (hi === undefined) return null;
+        pieces.push({ cols, key, loc, home: hi, corner: list.length === 3 });
+      }
+      const Uset = new Set(); L.forEach((f, i) => { if (eq(f.n, Ud)) Uset.add(i); });
+      const exact = p => ({ p, goal: new Set([p.home]) });
+      const onU = p => ({ p, goal: Uset });
+
+      let nodes = 0;
+      const LIMIT = 4e6;
+      function search(targets, moves, maxDepth) {
+        const dists = targets.map(t => {
+          const d = new Int16Array(L.length).fill(99);
+          const q = [];
+          t.goal.forEach(g => { d[g] = 0; q.push(g); });
+          // reverse BFS
+          const rev = Array.from({ length: L.length }, () => []);
+          moves.forEach(m => m.map.forEach((b, a) => rev[b].push(a)));
+          for (let h = 0; h < q.length; h++) { const b = q[h]; for (const a of rev[b]) if (d[a] === 99) { d[a] = d[b] + 1; q.push(a); } }
+          return d;
+        });
+        const start = targets.map(t => t.p.loc);
+        const hf = st => { let m = 0; for (let i = 0; i < st.length; i++) { const v = dists[i][st[i]]; if (v > m) m = v; } return m; };
+        const path = [];
+        function dfs(st, g, bound, fam) {
+          const h = hf(st);
+          if (h === 0) return true;
+          if (g + h > bound) return false;
+          if (++nodes > LIMIT) throw new Error('limit');
+          for (let mi = 0; mi < moves.length; mi++) {
+            const mv = moves[mi];
+            if (fam && mv.fam === fam) continue;
+            const ns = st.map(l => mv.map[l]);
+            path.push(mv);
+            if (dfs(ns, g + 1, bound, mv.fam)) return true;
+            path.pop();
+          }
+          return false;
+        }
+        for (let b = hf(start); b <= maxDepth; b++) if (dfs(start, 0, b, null)) return path.slice();
+        return null;
+      }
+      function applyAll(list) { for (const mv of list) for (const p of pieces) p.loc = mv.map[p.loc]; }
+
+      const stages = [];
+      function runStage(id, steps) {
+        const out = [], used = [];
+        for (const [targets, moves, depth] of steps) {
+          const r = search(targets(), moves, depth);
+          if (!r) throw new Error('fail ' + id);
+          applyAll(r);
+          r.forEach(mv => { out.push(...mv.seq); if (mv.fam === null) used.push(mv.str); });
+        }
+        stages.push({ id, moves: out, used });
+      }
+      const has = (p, c) => p.cols.includes(c);
+      const wE = pieces.filter(p => !p.corner && has(p, 2)), wC = pieces.filter(p => p.corner && has(p, 2));
+      const yE = pieces.filter(p => !p.corner && has(p, 3)), yC = pieces.filter(p => p.corner && has(p, 3));
+      const mE = pieces.filter(p => !p.corner && !has(p, 2) && !has(p, 3));
+      const sexy = rot4('R U R\' U\'').concat(rot4('U R U\' R\'')).map(s => mkMove(s, null));
+      const inserts = rot4('U R U\' R\' U\' F\' U F').concat(rot4('U\' L\' U L U F U\' F\'')).map(s => mkMove(s, null));
+      const ollE = [mkMove('F R U R\' U\' F\'', null)];
+      const sunes = [mkMove('R U R\' U R U2 R\'', null), mkMove('R U2 R\' U\' R U\' R\'', null)];
+      const aperms = [mkMove('R\' F R\' B2 R F\' R\' B2 R2', null), mkMove('R2 B2 R F R\' B2 R F\' R', null)];
+      const uperms = [mkMove('R U\' R U R U R U\' R\' U\' R2', null), mkMove('R2 U R U R\' U\' R\' U\' R\' U R\'', null)];
+      const steps = (list, base, moves, depth) => list.map((p, i) => [() => base().concat(list.slice(0, i + 1).map(exact)), moves, depth]);
+      try {
+        if (N === 3) {
+          runStage('cross', steps(wE, () => [], basic, 10));
+          runStage('corners', steps(wC, () => wE.map(exact), Uturns.concat(sexy), 10));
+          const F1 = () => wE.concat(wC).map(exact);
+          runStage('middle', steps(mE, F1, Uturns.concat(inserts), 8));
+          const F2 = () => wE.concat(wC, mE).map(exact);
+          runStage('ycross', [[() => F2().concat(yE.map(onU)), Uturns.concat(ollE), 9]]);
+          runStage('yface', [[() => F2().concat(yE.map(onU), yC.map(onU)), Uturns.concat(sunes), 10]]);
+          runStage('ycorners', [[() => F2().concat(yE.map(onU), yC.map(exact)), Uturns.concat(aperms), 8]]);
+          runStage('yedges', [[() => F2().concat(yE.map(exact), yC.map(exact)), Uturns.concat(uperms), 9]]);
+        } else {
+          const w0 = wC.filter(p => p.loc === p.home);
+          const rest = wC.filter(p => p.loc !== p.home);
+          runStage('white2', rest.map((p, i) => [() => w0.concat(rest.slice(0, i + 1)).map(exact), Uturns.concat(sexy), 10]));
+          runStage('yface2', [[() => wC.map(exact).concat(yC.map(onU)), Uturns.concat(sunes), 10]]);
+          runStage('ylayer2', [[() => wC.concat(yC).map(exact), Uturns.concat(aperms), 8]]);
+        }
+      } catch (e) { return { error: String(e.message || e), nodes }; }
+      return { stages, nodes };
+    };
+  }
+
+  let stageSolverFn = null;
+  function solveStages(n, colors) {
+    if (!stageSolverFn) stageSolverFn = makeStageSolver({ faceletList, permFor, fkey });
+    return stageSolverFn(n, colors);
+  }
+
+  const STAGE_META = {
+    cross: { n: 1, lv: 1, below: true, title: '흰 십자 만들기', alg: '',
+      desc: '흰 가운데 칸 둘레에 흰 모서리 4개를 붙여 + 모양을 만들어요. 모서리 옆면 색도 옆 가운데 칸과 같아야 해요. 가운데 칸은 서로 자리를 바꾸지 않아서 어느 색이 어디로 갈지 알려주는 기준이 돼요.' },
+    corners: { n: 2, lv: 2, below: true, title: '첫 층 완성하기', alg: "R U R' U'",
+      desc: '흰 꼭짓점을 들어갈 자리 바로 위로 돌려 놓고 공식을 반복하면 쏙 들어가요. 이 공식은 6번 하면 큐브가 원래대로 돌아오기 때문에, 반복하는 동안 이미 맞춘 십자가 망가지지 않아요.' },
+    middle: { n: 3, lv: 3, below: false, title: '둘째 층 맞추기', alg: "U R U' R' U' F' U F",
+      desc: '노란색이 없는 모서리를 위층에서 옆 색이 같은 가운데 칸 앞으로 돌린 뒤, 오른쪽이나 왼쪽으로 넣는 공식을 써요. 첫 층을 잠깐 열었다가 다시 닫는 공식이라 첫 층은 그대로 남아요.' },
+    ycross: { n: 4, lv: 4, below: false, title: '노란 십자 만들기', alg: "F R U R' U' F'",
+      desc: '이제 노란 면을 위로 두고, 윗면 모서리의 노란색이 위를 보게 해요. 공식을 쓸 때마다 점, ㄱ자, 일자, 십자 모양 순서로 바뀌어요. 아래 두 층은 공식이 끝나면 제자리로 돌아와요.' },
+    yface: { n: 5, lv: 5, below: false, title: '노란 면 완성하기', alg: "R U R' U R U2 R'",
+      desc: '꼭짓점의 노란색까지 모두 위를 보게 해요. 이 공식은 꼭짓점을 비틀기만 해서 노란 십자와 아래 두 층은 지켜줘요.' },
+    ycorners: { n: 6, lv: 6, below: false, title: '윗층 꼭짓점 자리 찾기', alg: "R' F R' B2 R F' R' B2 R2",
+      desc: '꼭짓점 3개를 빙글 돌려 자리를 바꾸는 공식으로, 꼭짓점마다 옆 색이 맞는 자리로 보내요. 노란색은 계속 위를 보고 있어요.' },
+    yedges: { n: 7, lv: 7, below: false, title: '윗층 모서리 자리 찾기', alg: "R U' R U R U R U' R' U' R2",
+      desc: '마지막으로 모서리 3개를 돌려 바꾸는 공식으로 옆 색까지 맞추면 완성이에요. 위층의 모서리만 바뀌고 나머지는 그대로라 맨 마지막에 써요.' },
+    white2: { n: 1, lv: 1, below: true, title: '흰 면 만들기', alg: "R U R' U'",
+      desc: '2×2는 가운데 칸이 없어서 흰 꼭짓점 하나를 기준으로 삼아요. 나머지 흰 꼭짓점을 들어갈 자리 위로 돌려 놓고 공식을 반복하면 흰 면과 옆 색이 함께 맞춰져요. 이 공식은 6번 하면 원래대로 돌아와서 이미 맞춘 칸은 지켜줘요.' },
+    yface2: { n: 2, lv: 2, below: false, title: '노란 면 만들기', alg: "R U R' U R U2 R'",
+      desc: '흰 면을 아래로 두고, 꼭짓점의 노란색이 모두 위를 보게 해요. 이 공식은 위층 꼭짓점을 비틀기만 하고 아래층은 그대로 둬요.' },
+    ylayer2: { n: 3, lv: 3, below: false, title: '윗층 맞추기', alg: "R' F R' B2 R F' R' B2 R2",
+      desc: '꼭짓점 3개를 돌려 자리를 바꾸는 공식으로 옆 색까지 맞추면 완성이에요. 노란색은 위를 본 채로 자리만 바뀌어요.' },
+    fast: { n: 1, lv: 99, below: false, title: '바로 맞추기', alg: '',
+      desc: '단계를 나누지 않고 지금 모양에서 바로 맞추는 짧은 방법이에요. 빠르지만 원리를 익히기에는 단계별 풀이가 좋아요.' }
+  };
+
+  // 단계 그림: 그 단계가 끝났을 때 맞춰져 있는 칸만 색칠한 작은 큐브
+  const svgCache = {};
+  function svgFor(id) {
+    const key = N + ':' + id;
+    if (svgCache[key]) return svgCache[key];
+    const meta = STAGE_META[id], lv = meta.lv, n = N, half = n / 2;
+    const FACE_COL = { '0,1,0': 3, '0,-1,0': 2, '0,0,1': 4, '0,0,-1': 5, '1,0,0': 1, '-1,0,0': 0 };
+    const shown = (p, nn) => {
+      const zeros = p.filter(v => v === 0).length;
+      const isU = nn[1] === 1, corner = zeros === 0;
+      if (n === 3 && zeros === 2) return true;
+      if (p[1] < 0) return n === 2 ? lv >= 1 : (corner ? lv >= 2 : lv >= 1);
+      if (p[1] === 0) return lv >= 3;
+      if (n === 2) return isU ? lv >= 2 : lv >= 3;
+      if (corner) return isU ? lv >= 5 : lv >= 6;
+      return isU ? lv >= 4 : lv >= 7;
+    };
+    const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    const crs = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    const nrm = a => { const l = Math.hypot(...a); return a.map(x => x / l); };
+    const v = nrm([1.25, meta.below ? -1.05 : 1.05, 1.7]);
+    const f = v.map(x => -x), right = nrm(crs(f, [0, 1, 0])), upv = crs(right, f);
+    const pr = q => [dot(q, right) * 20, -dot(q, upv) * 20];
+    const add = (a, b, s) => [a[0] + b[0] * s, a[1] + b[1] * s, a[2] + b[2] * s];
+    const tang = d => [[1, 0, 0], [0, 1, 0], [0, 0, 1]].filter(e => dot(e, d) === 0);
+    const quad = (c, d, s) => { const [a, b] = tang(d); return [add(add(c, a, s), b, s), add(add(c, a, s), b, -s), add(add(c, a, -s), b, -s), add(add(c, a, -s), b, s)]; };
+    const polys = [];
+    DARR.filter(d => dot(d, v) > 0).forEach(d => polys.push({ pts: quad(d.map(x => x * half), d, half).map(pr), fill: '#1B2030', body: true }));
+    faceletList(n).forEach(fl => {
+      if (dot(fl.n, v) <= 0) return;
+      const c = add(fl.p, fl.n, 0.5 + 0.001);
+      polys.push({ pts: quad(c, fl.n, 0.42).map(pr), fill: shown(fl.p, fl.n) ? HEX[FACE_COL[fl.n.join()]] : '#8E97AB' });
+    });
+    let minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9;
+    polys.forEach(pl => pl.pts.forEach(([x, y]) => { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y); }));
+    const pad = 3;
+    let s = '<svg viewBox="' + (minX - pad).toFixed(1) + ' ' + (minY - pad).toFixed(1) + ' ' + (maxX - minX + 2 * pad).toFixed(1) + ' ' + (maxY - minY + 2 * pad).toFixed(1) + '" aria-hidden="true">';
+    polys.forEach(pl => {
+      s += '<polygon points="' + pl.pts.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ') + '" fill="' + pl.fill + '"' +
+        (pl.body ? ' stroke="#1B2030" stroke-width="2.5" stroke-linejoin="round"' : '') + '/>';
+    });
+    s += '</svg>';
+    svgCache[key] = s;
+    return s;
+  }
+
+  // ---------- 풀이 계획 ----------
+  let plan = null, solveMode = 'stage', hintStageTitle = '';
+  const permCache = new Map();
+  function permCached(L, m) {
+    const k = N + m.axis + m.layer + ':' + m.dir;
+    if (!permCache.has(k)) permCache.set(k, permFor(L, m));
+    return permCache.get(k);
+  }
+  function computePlan(sig) {
+    const L = faceletList(N);
+    const colors = sig.split('').map(Number);
+    let stages = null, fallback = false;
+    if (solveMode === 'stage') {
+      let r = null;
+      try { r = solveStages(N, colors); } catch (e) { r = null; }
+      if (r && !r.error) stages = r.stages; else fallback = true;
+    }
+    if (!stages) {
+      if (!history.length) return null;
+      stages = [{ id: 'fast', moves: history.slice().reverse().map(inverse), used: [] }];
+    }
+    const flat = [];
+    stages.forEach((s, si) => s.moves.forEach(m => flat.push({ m, si })));
+    if (!flat.length) return null;
+    const sigs = [sig];
+    let s = colors;
+    flat.forEach(st => { const p = permCached(L, st.m); s = p.map(i => s[i]); sigs.push(s.join('')); });
+    return { N, mode: solveMode, stages, flat, sigs, pos: 0, fallback };
+  }
+  function getPlan() {
+    if (busy) return plan;
+    const sig = readColors(faceletList(N)).join('');
+    if (plan && plan.N === N && plan.mode === solveMode) {
+      const k = plan.sigs.indexOf(sig, plan.pos);
+      if (k >= 0) { plan.pos = k; return plan; }
+    }
+    plan = computePlan(sig);
+    return plan;
+  }
+
+  // ---------- 기호 설명 ----------
+  const symTxt = s => s.replace(/'/g, '′');
+  const SYM_MEAN = {
+    R: '오른쪽 줄 ⬆️', "R'": '오른쪽 줄 ⬇️', R2: '오른쪽 줄 2번',
+    L: '왼쪽 줄 ⬇️', "L'": '왼쪽 줄 ⬆️', L2: '왼쪽 줄 2번',
+    U: '윗줄 ⬅️', "U'": '윗줄 ➡️', U2: '윗줄 2번',
+    D: '아랫줄 ➡️', "D'": '아랫줄 ⬅️', D2: '아랫줄 2번',
+    F: '앞면 🔃', "F'": '앞면 🔄', F2: '앞면 2번',
+    B: '뒷면 🔄', "B'": '뒷면 🔃', B2: '뒷면 2번'
+  };
+  function algHtml(str) {
+    return '<div class="alg-row">' + str.split(/\s+/).filter(Boolean).map(t =>
+      '<span class="tok"><b>' + symTxt(t) + '</b><small>' + (SYM_MEAN[t] || '') + '</small></span>').join('') + '</div>';
+  }
+  const legendSvgCache = {};
+  function layerSvg(letter) {
+    const key = N + letter;
+    if (legendSvgCache[key]) return legendSvgCache[key];
+    const n = N, off = (n - 1) / 2, half = n / 2;
+    const sel = { R: [0, 1], L: [0, -1], U: [1, 1], D: [1, -1], F: [2, 1], B: [2, -1] }[letter];
+    const FACE_COL = { '0,1,0': 3, '0,-1,0': 2, '0,0,1': 4, '0,0,-1': 5, '1,0,0': 1, '-1,0,0': 0 };
+    const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    const crs = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    const nrm = a => { const l = Math.hypot(...a); return a.map(x => x / l); };
+    const v = nrm([1.25, 1.05, 1.7]);
+    const f = v.map(x => -x), right = nrm(crs(f, [0, 1, 0])), upv = crs(right, f);
+    const pr = q => [dot(q, right) * 20, -dot(q, upv) * 20];
+    const add = (a, b, s) => [a[0] + b[0] * s, a[1] + b[1] * s, a[2] + b[2] * s];
+    const tang = d => [[1, 0, 0], [0, 1, 0], [0, 0, 1]].filter(e => dot(e, d) === 0);
+    const quad = (c, d, s) => { const [a, b] = tang(d); return [add(add(c, a, s), b, s), add(add(c, a, s), b, -s), add(add(c, a, -s), b, -s), add(add(c, a, -s), b, s)]; };
+    const polys = [];
+    DARR.filter(d => dot(d, v) > 0).forEach(d => polys.push({ pts: quad(d.map(x => x * half), d, half).map(pr), fill: '#1B2030', body: true }));
+    faceletList(n).forEach(fl => {
+      if (dot(fl.n, v) <= 0) return;
+      const on = Math.abs(fl.p[sel[0]] - sel[1] * off) < 0.01;
+      polys.push({ pts: quad(add(fl.p, fl.n, 0.501), fl.n, 0.42).map(pr), fill: on ? HEX[FACE_COL[fl.n.join()]] : '#8E97AB' });
+    });
+    let minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9;
+    polys.forEach(pl => pl.pts.forEach(([x, y]) => { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y); }));
+    let s = '<svg viewBox="' + (minX - 3).toFixed(1) + ' ' + (minY - 3).toFixed(1) + ' ' + (maxX - minX + 6).toFixed(1) + ' ' + (maxY - minY + 6).toFixed(1) + '" aria-hidden="true">';
+    polys.forEach(pl => {
+      s += '<polygon points="' + pl.pts.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ') + '" fill="' + pl.fill + '"' +
+        (pl.body ? ' stroke="#1B2030" stroke-width="2.5" stroke-linejoin="round"' : '') + '/>';
+    });
+    s += '</svg>';
+    legendSvgCache[key] = s;
+    return s;
+  }
+  let legendN = 0;
+  function renderLegend() {
+    if (legendN === N) return;
+    legendN = N;
+    const rows = [
+      ['R', '오른쪽 면 (Right)', '⬆️ 오른쪽 줄을 위로'],
+      ['L', '왼쪽 면 (Left)', '⬇️ 왼쪽 줄을 아래로'],
+      ['U', '윗면 (Up)', '⬅️ 윗줄을 왼쪽으로'],
+      ['D', '아랫면 (Down)', '➡️ 아랫줄을 오른쪽으로'],
+      ['F', '앞면 (Front)', '🔃 앞면을 시계 방향으로'],
+      ['B', '뒷면 (Back)', '🔄 앞에서 보면 시계 반대 방향'],
+    ];
+    $('legendBody').innerHTML =
+      '<p>노란 면을 위로, 내 쪽을 보는 면을 앞으로 들고 읽어요. 글자는 <b>돌릴 면</b>의 영어 첫 글자예요. 글자만 있으면 그 면을 정면으로 마주 봤을 때 <b>시계 방향으로 ¼바퀴</b> 돌려요. 그림의 색칠된 줄이 돌아가는 부분이에요.</p>' +
+      '<div class="lg-grid">' + rows.map(r => '<div class="lg">' + layerSvg(r[0]) + '<div><b>' + r[0] + '</b><small><i>' + r[1] + '</i><br>' + r[2] + '</small></div></div>').join('') + '</div>' +
+      '<p><span class="sym">R′</span> 글자 뒤에 작은 따옴표(′, 프라임)가 붙으면 <b>반대 방향</b>이에요. R′는 오른쪽 줄을 아래로 돌려요.</p>' +
+      '<p><span class="sym">U2</span> 숫자 2가 붙으면 같은 방향으로 <b>두 번</b>(반 바퀴) 돌려요.</p>' +
+      '<p>예를 들어 R U R′ U′는 왼쪽부터 차례로 이렇게 돌려요.</p>' + algHtml("R U R' U'") +
+      (N === 3 ? '<p><span class="sym">M</span> <span class="sym">E</span> <span class="sym">S</span>는 가운데 줄이에요. M은 가운데 세로줄, E는 가운데 가로줄, S는 가운데 판이에요.</p>' : '') +
+      '<p>아래 돌리는 순서에 붙은 기호는 <b>지금 화면에서 내 쪽을 보는 면</b>을 앞(F)으로 보고 붙인 거예요. 큐브를 돌려 보면 기호도 같이 바뀌어요.</p>';
+  }
+
+  function renderPanel(scroll) {
+    const demo = state === 'demo';
+    const p = demo ? plan : getPlan();
+    $('tabStage').setAttribute('aria-pressed', String(solveMode === 'stage'));
+    $('tabFast').setAttribute('aria-pressed', String(solveMode === 'fast'));
+    $('tabStage').disabled = $('tabFast').disabled = demo;
+    const box = $('stageList');
+    box.innerHTML = '';
+    let note;
+    if (!p) note = '지금은 다 맞춰져 있어요! 섞기를 누르거나 큐브를 돌려 보면 풀이가 여기에 나와요.';
+    else if (p.fallback) note = '단계별 풀이를 만들지 못해서 가장 빠른 풀이를 보여줘요.';
+    else if (solveMode === 'stage') note = '맞춘 부분을 지키면서 한 단계씩 넓혀 가는 방법이에요. 공식은 노란 면을 위, 흰 면을 아래로 들었을 때 기준이에요.';
+    else note = '돌리는 방향 설명은 지금 화면에 보이는 방향 기준이에요.';
+    $('stepsNote').textContent = note;
+    renderLegend();
+    if (!p) return;
+    let offset = 0, focus = null;
+    p.stages.forEach(s => {
+      const start = offset, end = offset + s.moves.length;
+      offset = end;
+      const status = p.pos >= end ? 'done' : p.pos >= start ? 'now' : 'todo';
+      const meta = STAGE_META[s.id];
+      const sec = document.createElement('section');
+      sec.className = 'stage ' + status;
+      let metaLine = s.moves.length ? s.moves.length + '번 돌리기' : '이미 되어 있어요';
+      if (s.used && s.used.length) metaLine += ' · 공식 ' + s.used.length + '번 사용';
+      sec.innerHTML = '<div class="stage-top">' + svgFor(s.id) + '<div><h3><span class="num">' + (status === 'done' ? '✓' : meta.n) + '</span>' + meta.title + '</h3><p>' + meta.desc + '</p>' +
+        (meta.alg ? '<p class="meta">핵심 공식 (왼쪽부터 차례로)</p>' + algHtml(meta.alg) : '') +
+        '<p class="meta">' + metaLine + '</p></div></div>';
+      if (status === 'now') {
+        const ol = document.createElement('ol');
+        ol.className = 'moves';
+        s.moves.forEach((m, i) => {
+          const d = describe(m);
+          const li = document.createElement('li');
+          li.innerHTML = '<span class="sym">' + symTxt(d.sym) + '</span><span>' + d.icon + ' ' + d.text + '</span>';
+          const g = start + i;
+          if (g < p.pos) li.className = 'done';
+          else if (g === p.pos) { li.className = 'now'; focus = li; }
+          ol.appendChild(li);
+        });
+        sec.appendChild(ol);
+        if (!focus) focus = sec;
+      }
+      box.appendChild(sec);
+    });
+    if (scroll && focus) focus.scrollIntoView({ block: 'nearest' });
+  }
+
+  function setHintMove() {
+    if (!hlMove) return;
+    const d = describe(hlMove);
+    const left = plan ? plan.flat.length - plan.pos : 0;
+    hintEl.hidden = false;
+    hintEl.textContent = '💡 ' + (hintStageTitle ? hintStageTitle + ': ' : '') + symTxt(d.sym) + ' = ' + d.icon + ' ' + d.text + ' 돌려요' + (left ? ' (남은 ' + left + '번)' : '');
+  }
+  function showHintStep() {
+    if (busy || state === 'scrambling' || state === 'demo' || state === 'edit') return;
+    const p = getPlan();
+    if (!p || p.pos >= p.flat.length) { setHint('지금은 다 맞춰져 있어요!'); return; }
+    const st = p.flat[p.pos];
+    showHighlight(st.m);
+    hintStageTitle = STAGE_META[p.stages[st.si].id].title;
+    hintsUsed++;
+    setHintMove();
+    $('steps').hidden = false;
+    renderPanel(true);
+  }
+  function setSolveMode(mode) {
+    if (state === 'demo' || solveMode === mode) return;
+    solveMode = mode;
+    plan = null;
+    if (hlMove) { clearHighlight(); setHint(''); }
+    renderPanel(true);
+  }
+  let labelQueued = false;
+  function refreshLabels() {
+    if (labelQueued) return;
+    labelQueued = true;
+    requestAnimationFrame(() => {
+      labelQueued = false;
+      if (!$('steps').hidden) renderPanel(false);
+      if (hlMove) setHintMove();
+    });
+  }
+
+  // ---------- Cube ----------
+  const DIRS = [new V3(1,0,0), new V3(-1,0,0), new V3(0,1,0), new V3(0,-1,0), new V3(0,0,1), new V3(0,0,-1)];
+  const FACE_COLORS = [0xE8343A, 0xFF8A1F, 0xFFFFFF, 0xFFD21F, 0x22A447, 0x2D63F0];
+  const stickerMats = FACE_COLORS.map(c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.4, metalness: 0 }));
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0x1B2030, roughness: 0.65 });
+  const grayMat = new THREE.MeshStandardMaterial({ color: 0x9AA3B5, roughness: 0.6 });
+  function setStickerColor(st, c) { st.userData.color = c; st.material = c === 6 ? grayMat : stickerMats[c]; }
+  const bodyGeo = new THREE.BoxGeometry(0.96, 0.96, 0.96);
+  const stickerGeo = (() => {
+    const s = 0.41, r = 0.12, sh = new THREE.Shape();
+    sh.moveTo(-s + r, -s);
+    sh.lineTo(s - r, -s); sh.quadraticCurveTo(s, -s, s, -s + r);
+    sh.lineTo(s, s - r);  sh.quadraticCurveTo(s, s, s - r, s);
+    sh.lineTo(-s + r, s); sh.quadraticCurveTo(-s, s, -s, s - r);
+    sh.lineTo(-s, -s + r); sh.quadraticCurveTo(-s, -s, -s + r, -s);
+    return new THREE.ShapeGeometry(sh);
+  })();
+
+  let cubies = [], pickables = [], stickers = [];
+  function build(n) {
+    while (cubeGroup.children.length) cubeGroup.remove(cubeGroup.children[0]);
+    cubies = []; pickables = []; stickers = [];
+    const off = (n - 1) / 2;
+    for (let x = 0; x < n; x++) for (let y = 0; y < n; y++) for (let z = 0; z < n; z++) {
+      const p = new V3(x - off, y - off, z - off);
+      if (Math.max(Math.abs(p.x), Math.abs(p.y), Math.abs(p.z)) < off - 0.01) continue;
+      const g = new THREE.Group();
+      g.position.copy(p);
+      const body = new THREE.Mesh(bodyGeo, bodyMat);
+      g.add(body); pickables.push(body);
+      DIRS.forEach((d, i) => {
+        if (Math.abs(p.dot(d) - off) > 0.01) return;
+        const st = new THREE.Mesh(stickerGeo, stickerMats[i]);
+        st.position.copy(d).multiplyScalar(0.483);
+        st.quaternion.setFromUnitVectors(new V3(0, 0, 1), d);
+        st.userData.color = i;
+        g.add(st); pickables.push(st); stickers.push(st);
+      });
+      cubeGroup.add(g); cubies.push(g);
+    }
+  }
+
+  const tmpM = new THREE.Matrix4();
+  function snap(c) {
+    c.position.set(Math.round(c.position.x * 2) / 2, Math.round(c.position.y * 2) / 2, Math.round(c.position.z * 2) / 2);
+    tmpM.makeRotationFromQuaternion(c.quaternion);
+    const e = tmpM.elements;
+    [0,1,2,4,5,6,8,9,10].forEach(i => { e[i] = Math.round(e[i]); });
+    c.quaternion.setFromRotationMatrix(tmpM);
+  }
+
+  function isSolved() {
+    const seen = {};
+    const d = new V3();
+    for (const st of stickers) {
+      st.getWorldDirection(d);
+      const key = Math.round(d.x) + ',' + Math.round(d.y) + ',' + Math.round(d.z);
+      if (seen[key] === undefined) seen[key] = st.userData.color;
+      else if (seen[key] !== st.userData.color) return false;
+    }
+    return true;
+  }
+
+  // ---------- Move queue ----------
+  let busy = false;
+  const queue = [];
+  function enqueue(move, dur, onDone) { queue.push({ move, dur, onDone }); pump(); }
+  function pump() {
+    if (busy || !queue.length) return;
+    const job = queue.shift();
+    busy = true;
+    animateMove(job.move, job.dur, () => {
+      busy = false;
+      if (job.onDone) job.onDone();
+      pump();
+    });
+  }
+  function animateMove(m, dur, cb) {
+    const ax = m.axis;
+    const layer = cubies.filter(c => Math.abs(c.position[ax] - m.layer) < 0.1);
+    const pivot = new THREE.Object3D();
+    cubeGroup.add(pivot);
+    layer.forEach(c => pivot.attach(c));
+    const target = m.dir * Math.PI / 2;
+    const t0 = performance.now();
+    function step(now) {
+      const t = dur > 0 ? Math.min(1, (now - t0) / dur) : 1;
+      const e = 1 - Math.pow(1 - t, 3);
+      pivot.rotation[ax] = target * e;
+      if (t < 1) { requestAnimationFrame(step); return; }
+      pivot.updateMatrixWorld(true);
+      layer.forEach(c => { cubeGroup.attach(c); snap(c); });
+      cubeGroup.remove(pivot);
+      cb();
+    }
+    requestAnimationFrame(step);
+  }
+  const inverse = m => ({ axis: m.axis, layer: m.layer, dir: -m.dir });
+
+  // ---------- 큐브 세팅 + 풀이 찾기 ----------
+  const HEX = ['#E8343A', '#FF8A1F', '#FFFFFF', '#FFD21F', '#22A447', '#2D63F0'];
+  const NAMES = ['빨강', '주황', '하양', '노랑', '초록', '파랑'];
+  const DARR = [[1,0,0], [-1,0,0], [0,1,0], [0,-1,0], [0,0,1], [0,0,-1]];
+  let paintColor = 0, editSnapshot = null, solving = false, customPuzzle = false;
+
+  function rotV(v, axis, dir) {
+    let [x, y, z] = v;
+    for (let k = 0; k < (dir > 0 ? 1 : 3); k++) {
+      if (axis === 'x') [x, y, z] = [x, -z, y];
+      else if (axis === 'y') [x, y, z] = [z, y, -x];
+      else [x, y, z] = [-y, x, z];
+    }
+    return [x, y, z];
+  }
+  const fkey = (p, n) => p.join() + '|' + n.join();
+  function faceletList(n) {
+    const off = (n - 1) / 2, L = [];
+    for (let x = 0; x < n; x++) for (let y = 0; y < n; y++) for (let z = 0; z < n; z++) {
+      const p = [x - off, y - off, z - off];
+      DARR.forEach(d => { if (Math.abs(p[0] * d[0] + p[1] * d[1] + p[2] * d[2] - off) < 0.01) L.push({ p, n: d }); });
+    }
+    return L;
+  }
+  function permFor(L, m) {
+    const idx = new Map(L.map((f, i) => [fkey(f.p, f.n), i]));
+    const ai = { x: 0, y: 1, z: 2 }[m.axis];
+    const perm = L.map((_, i) => i);
+    L.forEach((f, i) => {
+      if (Math.abs(f.p[ai] - m.layer) < 0.01) perm[idx.get(fkey(rotV(f.p, m.axis, m.dir), rotV(f.n, m.axis, m.dir)))] = i;
+    });
+    return perm;
+  }
+  function readColors(L) {
+    cubeGroup.updateMatrixWorld(true);
+    const idx = new Map(L.map((f, i) => [fkey(f.p, f.n), i]));
+    const out = new Array(L.length);
+    const d = new V3();
+    stickers.forEach(st => {
+      st.getWorldDirection(d);
+      const n = [Math.round(d.x), Math.round(d.y), Math.round(d.z)];
+      const c = st.parent.position;
+      const p = [c.x, c.y, c.z].map(v => Math.round(v * 2) / 2);
+      out[idx.get(fkey(p, n))] = st.userData.color;
+    });
+    return out;
+  }
+  function facesUniform(L, colors) {
+    const seen = {};
+    for (let i = 0; i < L.length; i++) {
+      const k = L[i].n.join();
+      if (seen[k] === undefined) seen[k] = colors[i];
+      else if (seen[k] !== colors[i]) return false;
+    }
+    return true;
+  }
+
+  // 2×2: 한 모서리를 고정하고 양방향 너비 우선 탐색 (최단 풀이)
+  function solve2(L, colors) {
+    const M = [];
+    ['x', 'y', 'z'].forEach(a => [1, -1].forEach(d => M.push({ axis: a, layer: 0.5, dir: d })));
+    const P = M.map(m => permFor(L, m));
+    const ap = (s, p) => { let o = ''; for (let i = 0; i < p.length; i++) o += s[p[i]]; return o; };
+    const fc = {};
+    L.forEach((f, i) => { if (f.p.every(v => v < 0)) fc[f.n.join()] = colors[i]; });
+    const cx = fc['-1,0,0'], cy = fc['0,-1,0'], cz = fc['0,0,-1'];
+    if (new Set([cx >> 1, cy >> 1, cz >> 1]).size < 3) return null;
+    const goal = L.map(f => { const [a, b] = f.n; if (a) return a < 0 ? cx : cx ^ 1; if (b) return b < 0 ? cy : cy ^ 1; return f.n[2] < 0 ? cz : cz ^ 1; }).join('');
+    const start = colors.join('');
+    if (start === goal) return [];
+    const fw = new Map([[start, null]]), bw = new Map([[goal, null]]);
+    let ff = [start], bf = [goal];
+    const build = t => {
+      const a = []; let k = t;
+      while (fw.get(k)) { const e = fw.get(k); a.unshift(e.mi); k = e.s; }
+      k = t;
+      while (bw.get(k)) { const e = bw.get(k); a.push(e.mi); k = e.s; }
+      return a.map(i => M[i]);
+    };
+    for (let depth = 0; depth < 16; depth++) {
+      if (!ff.length || !bf.length) return null;
+      const forward = ff.length <= bf.length, next = [];
+      for (const s of (forward ? ff : bf)) {
+        for (let mi = 0; mi < 6; mi++) {
+          const t = ap(s, P[forward ? mi : mi ^ 1]);
+          if (forward) { if (fw.has(t)) continue; fw.set(t, { s, mi }); if (bw.has(t)) return build(t); }
+          else { if (bw.has(t)) continue; bw.set(t, { s, mi }); if (fw.has(t)) return build(t); }
+          next.push(t);
+        }
+      }
+      if (forward) ff = next; else bf = next;
+    }
+    return null;
+  }
+
+  // 3×3: Kociemba 두 단계 알고리즘 (cubejs)
+  let cubeLib = null;
+  function loadScript(src) {
+    return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
+  }
+  function loadCubeLib() {
+    if (!cubeLib) {
+      cubeLib = loadScript('https://cdn.jsdelivr.net/npm/cubejs@1.3.2/lib/cube.js')
+        .then(() => loadScript('https://cdn.jsdelivr.net/npm/cubejs@1.3.2/lib/solve.js'))
+        .then(() => new Promise(r => setTimeout(r, 30)))
+        .then(() => { window.Cube.initSolver(); })
+        .catch(e => { cubeLib = null; throw e; });
+    }
+    return cubeLib;
+  }
+  function kIndex(p, n) {
+    const [x, y, z] = p, f = n.join();
+    if (f === '0,1,0') return (z + 1) * 3 + (x + 1);
+    if (f === '1,0,0') return 9 + (1 - y) * 3 + (1 - z);
+    if (f === '0,0,1') return 18 + (1 - y) * 3 + (x + 1);
+    if (f === '0,-1,0') return 27 + (1 - z) * 3 + (x + 1);
+    if (f === '-1,0,0') return 36 + (1 - y) * 3 + (z + 1);
+    return 45 + (1 - y) * 3 + (1 - x);
+  }
+  function parity(a) {
+    let p = 0;
+    for (let i = 0; i < a.length; i++) for (let j = i + 1; j < a.length; j++) if (a[i] > a[j]) p ^= 1;
+    return p;
+  }
+  function validCube(c) {
+    const uniq = (a, n) => a.length === n && new Set(a).size === n && a.every(v => v >= 0 && v < n);
+    if (!uniq(c.cp, 8) || !uniq(c.ep, 12)) return false;
+    if (c.co.reduce((s, v) => s + v, 0) % 3) return false;
+    if (c.eo.reduce((s, v) => s + v, 0) % 2) return false;
+    return parity(c.cp) === parity(c.ep);
+  }
+  async function solve3(L, colors) {
+    const letter = {}, centerOf = {};
+    L.forEach((f, i) => { const k = kIndex(f.p, f.n); if (k % 9 === 4) { letter[colors[i]] = 'URFDLB'[Math.floor(k / 9)]; centerOf['URFDLB'[Math.floor(k / 9)]] = colors[i]; } });
+    if (Object.keys(letter).length !== 6) return { error: '가운데 칸 6개는 서로 다른 색이어야 해요' };
+    if ((centerOf.U ^ 1) !== centerOf.D || (centerOf.R ^ 1) !== centerOf.L || (centerOf.F ^ 1) !== centerOf.B)
+      return { error: '마주 보는 가운데 칸은 하양과 노랑, 빨강과 주황, 초록과 파랑이어야 해요' };
+    const arr = [];
+    L.forEach((f, i) => { arr[kIndex(f.p, f.n)] = letter[colors[i]]; });
+    await loadCubeLib();
+    const c = window.Cube.fromString(arr.join(''));
+    if (!validCube(c)) return null;
+    const sol = c.solve();
+    const MAP = { U: ['y', 1, -1], R: ['x', 1, -1], F: ['z', 1, -1], D: ['y', -1, 1], L: ['x', -1, 1], B: ['z', -1, 1] };
+    const out = [];
+    sol.split(/\s+/).filter(Boolean).forEach(t => {
+      const [axis, layer, d] = MAP[t[0]];
+      const dir = t[1] === "'" ? -d : d;
+      const times = t[1] === '2' ? 2 : 1;
+      for (let k = 0; k < times; k++) out.push({ axis, layer, dir });
+    });
+    return out;
+  }
+
+  function renderPalette() {
+    const counts = [0, 0, 0, 0, 0, 0, 0];
+    stickers.forEach(s => counts[s.userData.color]++);
+    const need = N * N, pal = $('palette');
+    pal.innerHTML = '';
+    for (let c = 0; c < 7; c++) {
+      const b = document.createElement('button');
+      b.className = 'sw';
+      b.setAttribute('aria-pressed', c === paintColor ? 'true' : 'false');
+      if (c < 6) {
+        const left = need - counts[c];
+        b.style.background = HEX[c];
+        b.setAttribute('aria-label', NAMES[c] + ', 남은 칸 ' + left);
+        const sp = document.createElement('span');
+        sp.textContent = left === 0 ? '✓' : left;
+        if (left < 0) sp.className = 'over'; else if (left === 0) sp.className = 'ok';
+        b.appendChild(sp);
+      } else {
+        b.style.background = '#9AA3B5';
+        b.textContent = '🧽';
+        b.setAttribute('aria-label', '지우개');
+      }
+      b.addEventListener('click', () => { paintColor = c; renderPalette(); });
+      pal.appendChild(b);
+    }
+    ['editClear', 'editReset', 'editCancel', 'editDone'].forEach(id => { $(id).disabled = solving; });
+  }
+  function paintAt(hit) {
+    if (!hit) return;
+    const d = new V3();
+    const st = hit.cubie.children.find(o => {
+      if (o.userData.color === undefined) return false;
+      o.getWorldDirection(d);
+      return Math.round(d.x) === hit.normal.x && Math.round(d.y) === hit.normal.y && Math.round(d.z) === hit.normal.z;
+    });
+    if (!st) return;
+    setStickerColor(st, paintColor);
+    renderPalette();
+  }
+  function enterEdit() {
+    if (busy || state === 'scrambling' || state === 'demo' || state === 'edit') return;
+    clearHighlight();
+    stopTimer();
+    $('win').hidden = true;
+    $('steps').hidden = true;
+    editSnapshot = { colors: stickers.map(s => s.userData.color), history: history.slice(), scrambleLen, state, moves, elapsed, customPuzzle };
+    state = 'edit';
+    $('playDock').hidden = true;
+    $('editDock').hidden = false;
+    renderPalette();
+    setHint('색을 고르고 큐브 칸을 톡 눌러 칠해요. 빈 곳을 밀면 뒤쪽도 볼 수 있어요');
+  }
+  function leaveEdit() {
+    editSnapshot = null;
+    $('playDock').hidden = false;
+    $('editDock').hidden = true;
+  }
+  function cancelEdit() {
+    if (solving || !editSnapshot) return;
+    const s = editSnapshot;
+    stickers.forEach((st, i) => setStickerColor(st, s.colors[i]));
+    history = s.history; scrambleLen = s.scrambleLen; moves = s.moves; elapsed = s.elapsed; customPuzzle = s.customPuzzle;
+    state = s.state === 'won' ? 'idle' : s.state;
+    if (state === 'playing') { startTimer(); startTime -= elapsed; }
+    leaveEdit();
+    renderStats();
+    setHint(state === 'ready' ? '큐브를 밀어서 시작해요' : state === 'idle' ? '섞기를 눌러 시작해요' : '');
+    refreshButtons();
+  }
+  async function finishEdit() {
+    if (solving) return;
+    const L = faceletList(N);
+    const colors = readColors(L);
+    const need = N * N;
+    const gray = colors.filter(c => c === 6).length;
+    if (gray) { setHint('아직 칠하지 않은 칸이 ' + gray + '개 있어요'); return; }
+    for (let c = 0; c < 6; c++) {
+      const k = colors.filter(x => x === c).length;
+      if (k !== need) { setHint(NAMES[c] + '은 ' + need + '칸이어야 하는데 지금 ' + k + '칸이에요'); return; }
+    }
+    solving = true;
+    renderPalette();
+    setHint('풀이를 찾는 중이에요…' + (N === 3 ? ' (처음엔 몇 초 걸려요)' : ''));
+    await new Promise(r => setTimeout(r, 80));
+    let sol, err = null;
+    try {
+      if (N === 2) sol = solve2(L, colors);
+      else {
+        const r = await solve3(L, colors);
+        if (r && r.error) err = r.error; else sol = r;
+      }
+    } catch (e) {
+      err = '풀이 도구를 불러오지 못했어요. 인터넷 연결을 확인해 봐요';
+    }
+    if (!err && sol) {
+      let s = colors;
+      for (const m of sol) { const p = permFor(L, m); s = p.map(i => s[i]); }
+      if (!facesUniform(L, s)) sol = null;
+    }
+    solving = false;
+    renderPalette();
+    if (err || !sol) {
+      setHint('😅 ' + (err || '진짜 큐브로는 나올 수 없는 배치예요. 색을 다시 확인해 봐요'));
+      return;
+    }
+    leaveEdit();
+    history = sol.slice().reverse().map(inverse);
+    scrambleLen = history.length;
+    hintsUsed = 0; moves = 0; elapsed = 0;
+    customPuzzle = true;
+    renderStats();
+    if (!history.length) { state = 'idle'; setHint('이미 다 맞춰진 모양이에요!'); }
+    else { state = 'ready'; setHint('문제 완성! ' + history.length + '단계면 풀 수 있어요. 큐브를 밀어서 시작해요'); }
+    refreshButtons();
+  }
+
+  // ---------- Game state ----------
+  // idle: 풀린 상태 / free: 자유롭게 돌리는 중 / scrambling / ready / playing / won / demo
+  let state = 'idle';
+  let history = [];
+  let scrambleLen = 0;
+  let moves = 0, startTime = 0, elapsed = 0, timerId = null;
+  let level = 3;
+
+  const fmt = ms => { const s = Math.floor(ms / 1000); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+  function setHint(t) { hintEl.textContent = t; hintEl.hidden = !t; }
+  function renderStats() { $('moves').textContent = moves; $('time').textContent = fmt(elapsed); }
+  function startTimer() {
+    startTime = performance.now();
+    clearInterval(timerId);
+    timerId = setInterval(() => { elapsed = performance.now() - startTime; renderStats(); }, 250);
+  }
+  function stopTimer() { clearInterval(timerId); timerId = null; }
+
+  function refreshButtons() {
+    const locked = state === 'scrambling' || state === 'demo' || state === 'edit';
+    $('scramble').disabled = locked;
+    $('setupBtn').disabled = locked;
+    $('undo').disabled = locked || history.length <= (state === 'playing' || state === 'ready' ? scrambleLen : 0);
+    $('solve').disabled = locked || history.length === 0;
+    $('hintBtn').disabled = locked || history.length === 0;
+    document.querySelectorAll('.seg button').forEach(b => { b.disabled = locked; });
+  }
+
+  function userMove(m, isUndo) {
+    if (hlMove) { clearHighlight(); setHint(''); }
+    if (state === 'ready') { state = 'playing'; startTimer(); setHint(''); }
+    if (state === 'idle' || state === 'won') { state = 'free'; setHint(''); }
+    if (state === 'playing') { moves++; renderStats(); }
+    if (!isUndo) {
+      const top = history[history.length - 1];
+      if (top && top.axis === m.axis && Math.abs(top.layer - m.layer) < 0.01 && top.dir === -m.dir) {
+        history.pop();
+        scrambleLen = Math.min(scrambleLen, history.length);
+      } else history.push(m);
+    }
+    refreshButtons();
+    enqueue(m, 190, () => {
+      if (!$('steps').hidden && state !== 'demo') renderPanel(true);
+      if (!isSolved()) return;
+      if (state === 'playing') win();
+      else if (state === 'free') { history = []; state = 'idle'; setHint('다 맞춰졌어요. 섞기를 눌러 놀아봐요'); refreshButtons(); }
+    });
+  }
+
+  function scramble() {
+    if (busy || state === 'scrambling' || state === 'demo') return;
+    $('win').hidden = true;
+    $('steps').hidden = true;
+    clearHighlight();
+    stopTimer();
+    state = 'scrambling';
+    refreshButtons();
+    setHint('섞는 중…');
+    moves = 0; elapsed = 0; renderStats();
+    const off = (N - 1) / 2;
+    const layers = [];
+    for (let i = 0; i < N; i++) layers.push(i - off);
+    const axes = ['x', 'y', 'z'];
+    let prevAxis = null;
+    const list = [];
+    for (let i = 0; i < level; i++) {
+      let axis;
+      do { axis = axes[Math.floor(Math.random() * 3)]; } while (axis === prevAxis);
+      prevAxis = axis;
+      list.push({ axis, layer: layers[Math.floor(Math.random() * N)], dir: Math.random() < 0.5 ? 1 : -1 });
+    }
+    list.forEach((m, i) => {
+      history.push(m);
+      enqueue(m, 110, i === list.length - 1 ? afterScramble : null);
+    });
+  }
+  function afterScramble() {
+    if (isSolved()) { // 아주 드물게 다시 맞춰진 경우 한 번 더 섞기
+      const m = { axis: 'y', layer: (N - 1) / 2, dir: 1 };
+      history.push(m);
+      enqueue(m, 110, afterScramble);
+      return;
+    }
+    scrambleLen = history.length;
+    hintsUsed = 0;
+    customPuzzle = false;
+    state = 'ready';
+    setHint('준비됐어요! 큐브를 밀어서 시작해요');
+    refreshButtons();
+  }
+
+  function undo() {
+    if (busy || state === 'scrambling' || state === 'demo') return;
+    const floor = (state === 'playing' || state === 'ready') ? scrambleLen : 0;
+    if (history.length <= floor) return;
+    const m = history.pop();
+    userMove(inverse(m), true);
+  }
+
+  function showSolution() {
+    if (busy || !history.length || state === 'scrambling' || state === 'demo' || state === 'edit') return;
+    clearHighlight();
+    const p = getPlan();
+    if (!p || p.pos >= p.flat.length) return;
+    stopTimer();
+    $('win').hidden = true;
+    state = 'demo';
+    refreshButtons();
+    setHint(solveMode === 'stage' && !p.fallback ? '한 단계씩 맞추는 중…' : '맞추는 중…');
+    $('steps').hidden = false;
+    renderPanel(true);
+    const rest = p.flat.slice(p.pos);
+    const dur = rest.length > 60 ? 330 : rest.length > 25 ? 430 : 620;
+    rest.forEach((st, i) => enqueue(st.m, dur, () => {
+      p.pos++;
+      renderPanel(true);
+      if (i < rest.length - 1) return;
+      history = [];
+      scrambleLen = 0;
+      state = 'idle';
+      setHint('짠! 다 맞춰졌어요. 섞기를 눌러 다시 해봐요');
+      refreshButtons();
+      renderPanel(false);
+    }));
+  }
+
+  function bestKey() { return 'cube-best-' + N + '-' + (customPuzzle ? 'custom' : level); }
+  function loadBest() { try { const v = localStorage.getItem(bestKey()); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
+  function saveBest(b) { try { localStorage.setItem(bestKey(), JSON.stringify(b)); } catch (e) {} }
+
+  function win() {
+    stopTimer();
+    elapsed = performance.now() - startTime;
+    renderStats();
+    state = 'won';
+    history = []; scrambleLen = 0;
+    refreshButtons();
+    setHint('');
+    const prev = loadBest();
+    let bestText;
+    if (!prev || elapsed < prev.time) {
+      saveBest({ time: elapsed, moves });
+      bestText = prev ? '새 최고 기록이에요! (전에는 ' + fmt(prev.time) + ')' : '첫 기록이 생겼어요!';
+    } else {
+      bestText = '최고 기록 ' + fmt(prev.time) + ', ' + prev.moves + '번';
+    }
+    $('winStats').textContent = moves + '번 움직여서 ' + fmt(elapsed) + ' 만에 맞췄어요' + (hintsUsed ? ' (힌트 ' + hintsUsed + '번)' : '');
+    $('winBest').textContent = bestText;
+    $('win').hidden = false;
+    confetti();
+    setTimeout(() => $('again').focus(), 50);
+  }
+
+  function confetti() {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const box = document.createElement('div');
+    box.className = 'confetti';
+    const cols = ['#E8343A', '#FF8A1F', '#FFD21F', '#22A447', '#2D63F0', '#FFFFFF'];
+    for (let i = 0; i < 60; i++) {
+      const p = document.createElement('i');
+      p.style.left = Math.random() * 100 + '%';
+      p.style.background = cols[i % cols.length];
+      p.style.animationDuration = (1.8 + Math.random() * 1.6) + 's';
+      p.style.animationDelay = (Math.random() * 0.5) + 's';
+      box.appendChild(p);
+    }
+    stage.appendChild(box);
+    setTimeout(() => box.remove(), 4200);
+  }
+
+  // ---------- Pointer input ----------
+  const ray = new THREE.Raycaster();
+  const ndc = new THREE.Vector2();
+  let drag = null;
+
+  function pick(e) {
+    const r = canvas.getBoundingClientRect();
+    ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(ndc, camera);
+    const hits = ray.intersectObjects(pickables, false);
+    if (!hits.length) return null;
+    const h = hits[0];
+    const n = h.face.normal.clone().transformDirection(h.object.matrixWorld);
+    n.set(Math.round(n.x), Math.round(n.y), Math.round(n.z));
+    return { point: h.point.clone(), normal: n, cubie: h.object.parent, obj: h.object };
+  }
+  function toScreen(v) {
+    const p = v.clone().project(camera);
+    return { x: p.x * canvas.clientWidth / 2, y: -p.y * canvas.clientHeight / 2 };
+  }
+  function decideMove(hit, sx, sy) {
+    const n = hit.normal;
+    const axes = [new V3(1,0,0), new V3(0,1,0), new V3(0,0,1)].filter(a => Math.abs(a.dot(n)) < 0.5);
+    const p0 = toScreen(hit.point);
+    const sl = Math.hypot(sx, sy) || 1;
+    let best = null, bestScore = 0;
+    for (const a of axes) {
+      const p1 = toScreen(hit.point.clone().add(a));
+      const vx = p1.x - p0.x, vy = p1.y - p0.y;
+      const vl = Math.hypot(vx, vy) || 1;
+      const s = (vx * sx + vy * sy) / (vl * sl);
+      if (Math.abs(s) > Math.abs(bestScore)) { bestScore = s; best = a; }
+    }
+    if (!best) return null;
+    const d = best.clone().multiplyScalar(Math.sign(bestScore));
+    const r = new V3().crossVectors(n, d);
+    const axis = Math.abs(r.x) > 0.5 ? 'x' : Math.abs(r.y) > 0.5 ? 'y' : 'z';
+    return { axis, layer: hit.cubie.position[axis], dir: Math.sign(r[axis]) };
+  }
+
+  canvas.addEventListener('pointerdown', e => {
+    if (drag) return;
+    canvas.setPointerCapture(e.pointerId);
+    const canTurn = !busy && state !== 'scrambling' && state !== 'demo';
+    const hit = pick(e);
+    drag = {
+      id: e.pointerId, x0: e.clientX, y0: e.clientY, lx: e.clientX, ly: e.clientY,
+      hit, mode: hit ? (canTurn ? 'turn' : 'none') : 'orbit'
+    };
+    if (state === 'edit') drag.mode = hit && !solving ? 'paint' : 'orbit';
+    if (drag.mode === 'orbit') canvas.classList.add('grabbing');
+  });
+  canvas.addEventListener('pointermove', e => {
+    if (!drag || e.pointerId !== drag.id) return;
+    if (drag.mode === 'paint' && Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) > 10) { drag.mode = 'orbit'; canvas.classList.add('grabbing'); }
+    if (drag.mode === 'orbit') {
+      theta -= (e.clientX - drag.lx) * 0.009;
+      phi += (e.clientY - drag.ly) * 0.009;
+      phi = Math.max(-1.3, Math.min(1.3, phi));
+      updateCamera();
+      refreshLabels();
+    } else if (drag.mode === 'turn') {
+      const sx = e.clientX - drag.x0, sy = e.clientY - drag.y0;
+      if (Math.hypot(sx, sy) > 14) {
+        const m = decideMove(drag.hit, sx, sy);
+        drag.mode = 'none';
+        if (m && !busy) userMove(m, false);
+      }
+    }
+    drag.lx = e.clientX; drag.ly = e.clientY;
+  });
+  const endDrag = e => {
+    if (!drag || e.pointerId !== drag.id) return;
+    if (drag.mode === 'paint' && e.type === 'pointerup' && state === 'edit') paintAt(drag.hit);
+    drag = null;
+    canvas.classList.remove('grabbing');
+  };
+  canvas.addEventListener('pointerup', endDrag);
+  canvas.addEventListener('pointercancel', endDrag);
+
+  // ---------- Controls ----------
+  function setSize(n) {
+    if (busy || state === 'scrambling' || state === 'demo') return;
+    N = n;
+    stopTimer();
+    build(N);
+    history = []; scrambleLen = 0; moves = 0; elapsed = 0;
+    customPuzzle = false;
+    state = 'idle';
+    $('win').hidden = true;
+    $('steps').hidden = true;
+    clearHighlight();
+    renderStats(); updateCamera(); refreshButtons();
+    setHint('섞기를 눌러 시작해요');
+  }
+  $('sizeSeg').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b || b.disabled) return;
+    document.querySelectorAll('#sizeSeg button').forEach(x => x.setAttribute('aria-pressed', x === b ? 'true' : 'false'));
+    setSize(+b.dataset.size);
+  });
+  $('levelSeg').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b || b.disabled) return;
+    document.querySelectorAll('#levelSeg button').forEach(x => x.setAttribute('aria-pressed', x === b ? 'true' : 'false'));
+    level = +b.dataset.level;
+  });
+  $('scramble').addEventListener('click', scramble);
+  $('undo').addEventListener('click', undo);
+  $('solve').addEventListener('click', showSolution);
+  $('hintBtn').addEventListener('click', showHintStep);
+  $('tabStage').addEventListener('click', () => setSolveMode('stage'));
+  $('tabFast').addEventListener('click', () => setSolveMode('fast'));
+  $('stepsClose').addEventListener('click', () => { $('steps').hidden = true; });
+  $('setupBtn').addEventListener('click', enterEdit);
+  $('editCancel').addEventListener('click', cancelEdit);
+  $('editDone').addEventListener('click', finishEdit);
+  $('editClear').addEventListener('click', () => { if (solving) return; stickers.forEach(s => setStickerColor(s, 6)); renderPalette(); });
+  $('editReset').addEventListener('click', () => {
+    if (solving) return;
+    const d = new V3();
+    cubeGroup.updateMatrixWorld(true);
+    stickers.forEach(s => {
+      s.getWorldDirection(d);
+      const i = DARR.findIndex(v => v[0] === Math.round(d.x) && v[1] === Math.round(d.y) && v[2] === Math.round(d.z));
+      setStickerColor(s, i);
+    });
+    renderPalette();
+  });
+  $('again').addEventListener('click', scramble);
+
+  // ---------- Start ----------
+  build(N);
+  resize();
+  refreshButtons();
+  (function loop() {
+    if (hlMesh) hlMat.opacity = 0.22 + 0.16 * Math.sin(performance.now() / 180);
+    renderer.render(scene, camera);
+    requestAnimationFrame(loop);
+  })();
+})();
+</script>
+</body>
+</html>
