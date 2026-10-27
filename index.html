@@ -177,7 +177,7 @@ button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
 </head>
 <body>
 <header class="top">
-  <h1>큐브 놀이<small class="ver">v1.0</small></h1>
+  <h1>큐브 놀이<small class="ver">v1.1</small></h1>
   <div class="stats">
     <div class="stat"><span>움직임</span><b id="moves">0</b></div>
     <div class="stat"><span>시간</span><b id="time">0:00</b></div>
@@ -1263,9 +1263,8 @@ button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
   }
 
   // ---------- 정답 보기 (자동 재생 / 한 번씩) ----------
-  let demoAuto = true, demoStart = 0, demoDur = 500, demoStopping = false, demoTimer = null;
-  try { demoAuto = localStorage.getItem('cube-demo-mode') !== 'step'; } catch (e) {}
-  function saveDemoMode() { try { localStorage.setItem('cube-demo-mode', demoAuto ? 'auto' : 'step'); } catch (e) {} }
+  // 정답 보기를 누르면 멈춘 상태로 시작하고, ▶▶ 자동을 눌러야 자동으로 돌아가요
+  let demoAuto = false, demoStart = 0, demoDur = 500, demoStopping = false, demoTimer = null;
 
   function pushHistory(m) {
     const top = history[history.length - 1];
@@ -1285,6 +1284,7 @@ button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
     state = 'demo';
     demoStart = p.pos;
     demoStopping = false;
+    demoAuto = false;
     const rest = p.flat.length - p.pos;
     demoDur = rest > 60 ? 330 : rest > 25 ? 430 : 620;
     $('playDock').hidden = true;
@@ -1293,7 +1293,6 @@ button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
     $('steps').hidden = false;
     renderPanel(true);
     demoUpdate();
-    if (demoAuto) demoNext();
   }
 
   function demoUpdate() {
@@ -1349,7 +1348,6 @@ button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
   function demoToggleAuto() {
     if (state !== 'demo') return;
     demoAuto = !demoAuto;
-    saveDemoMode();
     clearTimeout(demoTimer);
     if (demoAuto) demoNext();
     demoUpdate();
