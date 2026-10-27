@@ -39,16 +39,17 @@ body{
 }
 .top{display:flex;align-items:center;justify-content:space-between;padding:14px 20px 0;gap:12px}
 h1{margin:0;font-size:1.6rem;font-weight:400;letter-spacing:-.01em}
+h1 .ver{font-size:.8rem;color:var(--soft);background:var(--surface);border-radius:999px;padding:2px 8px;margin-left:6px;vertical-align:middle;font-weight:400}
 .stats{display:flex;gap:18px}
 .stat{display:flex;flex-direction:column;align-items:flex-end;line-height:1.1}
 .stat span{font-size:.85rem;color:var(--soft)}
 .stat b{font-weight:400;font-size:1.6rem;font-variant-numeric:tabular-nums;min-width:3ch;text-align:right}
 
-#stage{position:relative;flex:1;min-height:0}
-#c{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+#stage{position:relative;flex:1;min-height:0;--panelH:0px}
+#c{position:absolute;left:0;top:0;right:0;bottom:var(--panelH);width:100%;height:calc(100% - var(--panelH));display:block;touch-action:none;cursor:grab}
 #c.grabbing{cursor:grabbing}
 #hint{
-  position:absolute;left:50%;bottom:10px;transform:translateX(-50%);
+  position:absolute;left:50%;bottom:calc(var(--panelH) + 10px);transform:translateX(-50%);z-index:4;
   margin:0;padding:8px 16px;border-radius:999px;background:var(--surface);color:var(--ink);
   font-size:1rem;text-align:center;max-width:calc(100% - 32px);box-shadow:0 2px 0 var(--line);
   pointer-events:none;
@@ -75,7 +76,11 @@ h1{margin:0;font-size:1.6rem;font-weight:400;letter-spacing:-.01em}
 .btn:disabled,.seg button:disabled{opacity:.4;cursor:default}
 #steps{position:absolute;top:10px;right:10px;width:min(350px,calc(100% - 20px));max-height:calc(100% - 70px);display:flex;flex-direction:column;background:var(--surface);border-radius:20px;box-shadow:0 4px 0 var(--line);z-index:3;overflow:hidden}
 #steps[hidden]{display:none}
-#playDock[hidden],#editDock[hidden]{display:none}
+#playDock[hidden],#editDock[hidden],#demoDock[hidden]{display:none}
+#demoDock{align-items:center}
+.prog{font-size:1.05rem;color:var(--soft);font-variant-numeric:tabular-nums;min-width:5.5ch;text-align:center}
+.prog b{font-weight:400;color:var(--ink)}
+#stepsSize{display:none;font:inherit;border:0;background:var(--bg);color:var(--ink);border-radius:12px;padding:6px 10px;cursor:pointer}
 #editDock .group{align-items:center}
 .palette{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;padding-top:8px}
 .sw{width:50px;height:50px;border-radius:14px;border:3px solid var(--line);cursor:pointer;position:relative;font:inherit;font-size:1.4rem;padding:0;transition:transform .1s}
@@ -88,7 +93,17 @@ h1{margin:0;font-size:1.6rem;font-weight:400;letter-spacing:-.01em}
 .steps-head b{font-weight:400;font-size:1.1rem}
 .steps-head small{display:block;color:var(--soft);font-size:.8rem}
 #stepsClose{font:inherit;border:0;background:var(--bg);color:var(--ink);border-radius:12px;padding:6px 12px;cursor:pointer}
-@media (max-width:520px){ #steps{top:auto;bottom:56px;left:10px;right:10px;width:auto;max-height:50%} }
+@media (max-width:520px){
+  #steps{top:auto;bottom:6px;left:8px;right:8px;width:auto;max-height:none;height:38%}
+  #steps.big{height:66%}
+  #stepsSize{display:block}
+  .steps-head{padding:10px 10px 6px;gap:6px}
+  .tabs button{font-size:.86rem;padding:6px 8px}
+  #stepsClose{padding:6px 10px}
+  #demoDock .actions{gap:6px;flex-wrap:nowrap}
+  #demoDock .btn{padding:10px 11px;font-size:.98rem}
+  .prog{min-width:auto;font-size:.9rem}
+}
 .tabs{display:flex;background:var(--bg);border-radius:12px;padding:3px}
 .tabs button{font:inherit;font-size:.95rem;border:0;background:transparent;color:var(--ink);padding:6px 10px;border-radius:9px;cursor:pointer}
 .tabs button[aria-pressed="true"]{background:var(--blue);color:var(--blue-ink)}
@@ -162,7 +177,7 @@ button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
 </head>
 <body>
 <header class="top">
-  <h1>큐브 놀이</h1>
+  <h1>큐브 놀이<small class="ver">v1.0</small></h1>
   <div class="stats">
     <div class="stat"><span>움직임</span><b id="moves">0</b></div>
     <div class="stat"><span>시간</span><b id="time">0:00</b></div>
@@ -178,7 +193,10 @@ button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
         <button id="tabStage" aria-pressed="true">단계별 풀이</button>
         <button id="tabFast" aria-pressed="false">가장 빠른 풀이</button>
       </div>
-      <button id="stepsClose">닫기</button>
+      <div style="display:flex;gap:6px">
+        <button id="stepsSize" aria-pressed="false">크게</button>
+        <button id="stepsClose">닫기</button>
+      </div>
     </div>
     <div class="steps-scroll">
       <p class="steps-note" id="stepsNote"></p>
@@ -224,6 +242,16 @@ button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
   </div>
 </section>
 
+<section class="dock" id="demoDock" hidden>
+  <div class="actions">
+    <button class="btn" id="demoPrev" title="키보드 ←">◀ 이전</button>
+    <span class="prog" id="demoProg"><b>0</b> / 0</span>
+    <button class="btn" id="demoNext" title="키보드 →">다음 ▶</button>
+    <button class="btn primary" id="demoAuto" title="스페이스바">▶▶ 자동</button>
+    <button class="btn" id="demoStop">그만</button>
+  </div>
+</section>
+
 <section class="dock" id="editDock" hidden>
   <div class="group">
     <span class="glabel">색을 고르고 큐브 칸을 톡 눌러요 (숫자는 남은 칸)</span>
@@ -260,7 +288,7 @@ button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
 
   let theta = 0.65, phi = 0.5, N = 2;
   function updateCamera() {
-    const w = stage.clientWidth || 1, h = stage.clientHeight || 1;
+    const w = canvas.clientWidth || 1, h = canvas.clientHeight || 1;
     const aspect = w / h;
     const dist = (N * 3.1 + 1.2) / Math.min(1, aspect * 1.05);
     camera.position.set(
@@ -270,15 +298,25 @@ button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
     );
     camera.lookAt(0, 0, 0);
   }
+  // 휴대폰에서는 풀이 창을 아래에 붙이고, 큐브는 남은 위쪽 공간에 맞춰 그려요
+  const mobileMQ = window.matchMedia('(max-width:520px)');
+  function layout() {
+    const sp = document.getElementById('steps');
+    const h = (mobileMQ.matches && sp && !sp.hidden) ? sp.offsetHeight + 12 : 0;
+    stage.style.setProperty('--panelH', h + 'px');
+    resize();
+  }
   function resize() {
-    const w = stage.clientWidth, h = stage.clientHeight;
+    const w = canvas.clientWidth, h = canvas.clientHeight;
     if (!w || !h) return;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
     updateCamera();
   }
-  new ResizeObserver(resize).observe(stage);
+  const ro = new ResizeObserver(layout);
+  ro.observe(stage);
+  ro.observe(document.getElementById('steps'));
 
   // ---------- 움직임을 말로 설명하기 (지금 보이는 방향 기준) ----------
   function describe(m) {
@@ -751,7 +789,8 @@ button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
     requestAnimationFrame(() => {
       labelQueued = false;
       if (!$('steps').hidden) renderPanel(false);
-      if (hlMove) setHintMove();
+      if (state === 'demo') { if (!demoAuto && !busy) demoShowNext(); }
+      else if (hlMove) setHintMove();
     });
   }
 
@@ -1223,6 +1262,19 @@ button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
     userMove(inverse(m), true);
   }
 
+  // ---------- 정답 보기 (자동 재생 / 한 번씩) ----------
+  let demoAuto = true, demoStart = 0, demoDur = 500, demoStopping = false, demoTimer = null;
+  try { demoAuto = localStorage.getItem('cube-demo-mode') !== 'step'; } catch (e) {}
+  function saveDemoMode() { try { localStorage.setItem('cube-demo-mode', demoAuto ? 'auto' : 'step'); } catch (e) {} }
+
+  function pushHistory(m) {
+    const top = history[history.length - 1];
+    if (top && top.axis === m.axis && Math.abs(top.layer - m.layer) < 0.01 && top.dir === -m.dir) {
+      history.pop();
+      scrambleLen = Math.min(scrambleLen, history.length);
+    } else history.push(m);
+  }
+
   function showSolution() {
     if (busy || !history.length || state === 'scrambling' || state === 'demo' || state === 'edit') return;
     clearHighlight();
@@ -1231,24 +1283,107 @@ button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
     stopTimer();
     $('win').hidden = true;
     state = 'demo';
+    demoStart = p.pos;
+    demoStopping = false;
+    const rest = p.flat.length - p.pos;
+    demoDur = rest > 60 ? 330 : rest > 25 ? 430 : 620;
+    $('playDock').hidden = true;
+    $('demoDock').hidden = false;
     refreshButtons();
-    setHint(solveMode === 'stage' && !p.fallback ? '한 단계씩 맞추는 중…' : '맞추는 중…');
     $('steps').hidden = false;
     renderPanel(true);
-    const rest = p.flat.slice(p.pos);
-    const dur = rest.length > 60 ? 330 : rest.length > 25 ? 430 : 620;
-    rest.forEach((st, i) => enqueue(st.m, dur, () => {
-      p.pos++;
-      renderPanel(true);
-      if (i < rest.length - 1) return;
-      history = [];
-      scrambleLen = 0;
+    demoUpdate();
+    if (demoAuto) demoNext();
+  }
+
+  function demoUpdate() {
+    const p = plan;
+    if (!p || state !== 'demo') return;
+    const total = p.flat.length - demoStart, done = p.pos - demoStart;
+    $('demoProg').innerHTML = '<b>' + done + '</b> / ' + total;
+    $('demoPrev').disabled = busy || demoAuto || p.pos <= demoStart;
+    $('demoNext').disabled = busy || demoAuto || p.pos >= p.flat.length;
+    $('demoAuto').textContent = demoAuto ? '⏸ 멈춤' : '▶▶ 자동';
+    if (demoAuto) { clearHighlight(); setHint(solveMode === 'stage' && !p.fallback ? '한 단계씩 맞추는 중… (' + done + ' / ' + total + ')' : '맞추는 중… (' + done + ' / ' + total + ')'); }
+    else if (!busy) demoShowNext();
+  }
+  // 한 번씩 모드: 다음에 돌릴 줄을 노랗게 표시하고 말풍선으로 미리 알려줘요
+  function demoShowNext() {
+    const p = plan;
+    if (!p || state !== 'demo') return;
+    if (p.pos >= p.flat.length) { clearHighlight(); return; }
+    const st = p.flat[p.pos];
+    showHighlight(st.m);
+    const d = describe(st.m);
+    const title = STAGE_META[p.stages[st.si].id].title;
+    hintEl.hidden = false;
+    hintEl.textContent = '👉 다음: ' + (solveMode === 'stage' && !p.fallback ? title + ' · ' : '') + symTxt(d.sym) + ' = ' + d.icon + ' ' + d.text + ' 돌려요';
+  }
+
+  function demoNext() {
+    const p = plan;
+    if (state !== 'demo' || busy || !p || p.pos >= p.flat.length) return;
+    const m = p.flat[p.pos].m;
+    clearHighlight();
+    pushHistory(m);
+    enqueue(m, demoAuto ? demoDur : 450, () => { p.pos++; demoAfterMove(); });
+    demoUpdate();
+  }
+  function demoPrev() {
+    const p = plan;
+    if (state !== 'demo' || busy || demoAuto || !p || p.pos <= demoStart) return;
+    const m = inverse(p.flat[p.pos - 1].m);
+    clearHighlight();
+    pushHistory(m);
+    enqueue(m, 450, () => { p.pos--; demoAfterMove(); });
+    demoUpdate();
+  }
+  function demoAfterMove() {
+    const p = plan;
+    renderPanel(true);
+    if (p.pos >= p.flat.length) { endDemo(true); return; }
+    if (demoStopping) { endDemo(false); return; }
+    demoUpdate();
+    if (demoAuto) { clearTimeout(demoTimer); demoTimer = setTimeout(demoNext, 90); }
+  }
+  function demoToggleAuto() {
+    if (state !== 'demo') return;
+    demoAuto = !demoAuto;
+    saveDemoMode();
+    clearTimeout(demoTimer);
+    if (demoAuto) demoNext();
+    demoUpdate();
+  }
+  function demoStop() {
+    if (state !== 'demo') return;
+    clearTimeout(demoTimer);
+    if (busy) { demoStopping = true; return; } // 지금 돌아가는 한 번이 끝나면 멈춰요
+    endDemo(false);
+  }
+  function endDemo(finished) {
+    clearTimeout(demoTimer);
+    clearHighlight();
+    demoStopping = false;
+    $('demoDock').hidden = true;
+    $('playDock').hidden = false;
+    if (finished || isSolved()) {
+      history = []; scrambleLen = 0;
       state = 'idle';
       setHint('짠! 다 맞춰졌어요. 섞기를 눌러 다시 해봐요');
-      refreshButtons();
-      renderPanel(false);
-    }));
+    } else {
+      state = 'free';
+      setHint('여기서부터 직접 이어서 맞춰 봐요');
+    }
+    refreshButtons();
+    renderPanel(false);
   }
+  document.addEventListener('keydown', e => {
+    if (state !== 'demo' || e.altKey || e.ctrlKey || e.metaKey) return;
+    if (e.key === 'ArrowRight') { e.preventDefault(); if (demoAuto) demoToggleAuto(); else demoNext(); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); if (demoAuto) demoToggleAuto(); else demoPrev(); }
+    else if (e.key === ' ' || e.code === 'Space') { e.preventDefault(); if (!e.repeat) demoToggleAuto(); }
+  });
+  document.addEventListener('keyup', e => { if (state === 'demo' && (e.key === ' ' || e.code === 'Space')) e.preventDefault(); });
 
   function bestKey() { return 'cube-best-' + N + '-' + (customPuzzle ? 'custom' : level); }
   function loadBest() { try { const v = localStorage.getItem(bestKey()); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
@@ -1422,6 +1557,16 @@ button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
     renderPalette();
   });
   $('again').addEventListener('click', scramble);
+  $('demoPrev').addEventListener('click', demoPrev);
+  $('demoNext').addEventListener('click', demoNext);
+  $('demoAuto').addEventListener('click', demoToggleAuto);
+  $('demoStop').addEventListener('click', demoStop);
+  $('stepsSize').addEventListener('click', () => {
+    const big = $('steps').classList.toggle('big');
+    $('stepsSize').textContent = big ? '작게' : '크게';
+    $('stepsSize').setAttribute('aria-pressed', String(big));
+  });
+  if (mobileMQ.matches) document.querySelector('.legend').removeAttribute('open');
 
   // ---------- Start ----------
   build(N);
